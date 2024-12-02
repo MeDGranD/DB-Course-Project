@@ -1,5 +1,6 @@
 package ru.medgrand.DBKPProject.Infrastucture;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,27 +21,39 @@ public class ReviewRepository {
     private final JdbcTemplate jdbc;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
+    private RowMapper<Review> mapper;
 
-    private final RowMapper<Review> mapper = (rs, rowNum) -> {
-      Review review = new Review();
+    @PostConstruct
+    public void init() {
 
-      review.setReview_id(rs.getInt("review_id"));
-      review.setRating(rs.getInt("rating"));
-      review.setReview_date(rs.getTimestamp("review_date").toLocalDateTime());
-      review.setComment(rs.getString("comment"));
+        mapper = (rs, rowNum) -> {
+            Review review = new Review();
 
-      Optional<User> user = userRepository.getUserById(rs.getInt("user_id"));
-      Optional<Order> order = orderRepository.getOrderById(rs.getInt("order_id"));
+            review.setReview_id(rs.getInt("review_id"));
+            review.setRating(rs.getInt("rating"));
+            review.setReview_date(rs.getTimestamp("review_date").toLocalDateTime());
+            review.setComment(rs.getString("comment"));
 
-      if(user.isEmpty() || order.isEmpty()){
-          throw new RuntimeException("User or order don`t exists");
-      }
+            Optional<User> user = userRepository.getUserById(rs.getInt("user_id"));
+            Optional<Order> order = orderRepository.getOrderById(rs.getInt("order_id"));
 
-      review.setUser(user.get());
-      review.setOrder(order.get());
+            if (user.isEmpty() || order.isEmpty()) {
+                throw new RuntimeException("User or order don`t exists");
+            }
 
-      return review;
-    };
+            review.setUser(user.get());
+            review.setOrder(order.get());
+
+            return review;
+        };
+    }
+
+    public List<Review> getAllReviews(){
+        return jdbc.query(
+                "select * from reviews",
+                mapper
+        );
+    }
 
     public List<Review> getReviewsByUser(User user){
         return jdbc.query(
@@ -104,6 +117,11 @@ public class ReviewRepository {
     public Optional<Review> updateReview(Review review){
         jdbc.update(
                 "update reviews set user_id = ?, order_id = ?, rating = ?, comment = ?, review_date = ? where order_id = ?",
+                review.getUser().getUser_id(),
+                review.getOrder().getOrder_id(),
+                review.getRating(),
+                review.getComment(),
+                review.getReview_date(),
                 review.getOrder().getOrder_id()
         );
         return getReviewByOrder(review.getOrder());

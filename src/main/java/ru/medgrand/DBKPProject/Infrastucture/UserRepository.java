@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import ru.medgrand.DBKPProject.Models.User;
 
+import java.util.List;
 import java.util.Optional;
 
 
@@ -31,13 +32,24 @@ public class UserRepository {
         return user;
     };
 
+    public List<User> getAllUsers(){
+        return jdbc.query(
+                """
+                                    select *
+                                    from users
+                                    join roles using(role_id)
+                                    """,
+                mapper
+        );
+    }
+
     public Optional<User> getUserById(int id){
         try{
             return Optional.ofNullable(
                     jdbc.queryForObject(
                             """
                                     select *
-                                    from user
+                                    from users
                                     join roles using(role_id)
                                     where user_id = ?
                                     """,
@@ -57,7 +69,7 @@ public class UserRepository {
                     jdbc.queryForObject(
                             """
                                     select *
-                                    from user
+                                    from users
                                     join roles using(role_id)
                                     where username = ?
                                     """,
@@ -90,7 +102,7 @@ public class UserRepository {
 
         if(existUser.isEmpty()){
             jdbc.update(
-                    "insert into user (username, password, role_id, email, telephone, created_at) values (?, ?, ?, ?, ?, ?)",
+                    "insert into users (username, password, role_id, email, telephone, created_at) values (?, ?, ?, ?, ?, ?)",
                     user.getUsername(),
                     user.getPassword(),
                     role_id,

@@ -1,5 +1,6 @@
 package ru.medgrand.DBKPProject.Infrastucture;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.medgrand.DBKPProject.Models.Employee;
 import ru.medgrand.DBKPProject.Models.User;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -17,26 +19,37 @@ public class EmployeeRepository {
 
     private final JdbcTemplate jdbc;
     private final UserRepository userRepository;
+    private RowMapper<Employee> mapper;
 
-    private final RowMapper<Employee> mapper = (rs, rowMapper) -> {
-        Employee employee = new Employee();
+    @PostConstruct
+    public void init() {
+        mapper = (rs, rowMapper) -> {
+            Employee employee = new Employee();
 
-        employee.setEmployee_id(rs.getInt("employee_id"));
-        employee.setSalary(rs.getDouble("salary"));
-        employee.setFirst_name(rs.getString("first_name"));
-        employee.setLast_name(rs.getString("last_name"));
-        employee.setHired_at(rs.getDate("hired_at").toLocalDate());
+            employee.setEmployee_id(rs.getInt("employee_id"));
+            employee.setSalary(rs.getDouble("salary"));
+            employee.setFirst_name(rs.getString("first_name"));
+            employee.setLast_name(rs.getString("last_name"));
+            employee.setHired_at(rs.getDate("hired_at").toLocalDate());
 
-        Optional<User> empUser = userRepository.getUserById(rs.getInt("user_id"));
+            Optional<User> empUser = userRepository.getUserById(rs.getInt("user_id"));
 
-        if(empUser.isEmpty()){
-            throw new RuntimeException("User don`t exists");
-        }
+            if (empUser.isEmpty()) {
+                throw new RuntimeException("User don`t exists");
+            }
 
-        employee.setUser(empUser.get());
+            employee.setUser(empUser.get());
 
-        return employee;
-    };
+            return employee;
+        };
+    }
+
+    public List<Employee> getAllEmployees(){
+        return jdbc.query(
+                "select * from employees",
+                mapper
+        );
+    }
 
     public Optional<Employee> getEmployeeById(int id){
         try{
@@ -82,7 +95,7 @@ public class EmployeeRepository {
 
         if(existEmployee.isEmpty()){
             jdbc.update(
-                    "insert into employees (user_id, first_name, last_name, hired_at, salary,) values (?, ?, ?, ?, ?)",
+                    "insert into employees (user_id, first_name, last_name, hired_at, salary) values (?, ?, ?, ?, ?)",
                     employee.getUser().getUser_id(),
                     employee.getFirst_name(),
                     employee.getLast_name(),

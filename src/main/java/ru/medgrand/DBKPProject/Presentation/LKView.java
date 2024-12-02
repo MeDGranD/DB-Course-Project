@@ -1,40 +1,71 @@
 package ru.medgrand.DBKPProject.Presentation;
 
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.Span;
-import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.PasswordField;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.auth.AnonymousAllowed;
-import com.vaadin.flow.spring.security.AuthenticationContext;
 import jakarta.annotation.security.PermitAll;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
-import ru.medgrand.DBKPProject.Infrastucture.MenuRepository;
-import ru.medgrand.DBKPProject.Models.Menu_Item;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import ru.medgrand.DBKPProject.Infrastucture.UserRepository;
+import ru.medgrand.DBKPProject.Models.User;
 import ru.medgrand.DBKPProject.Security.MyUserDetails;
 import ru.medgrand.DBKPProject.Security.SecurityService;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-@Route("/")
-@AnonymousAllowed
-public class MainView extends VerticalLayout {
+@Route("/lk")
+@PermitAll
+public class LKView extends VerticalLayout {
 
     private final SecurityService securityService;
+    private final UserRepository userRepository;
 
     @Autowired
-    public MainView(SecurityService securityService, AuthenticationContext authContext) {
-
+    public LKView(SecurityService securityService,
+                  UserRepository userRepository){
         this.securityService = securityService;
+        this.userRepository = userRepository;
 
         add(getNavBar());
+
+        HorizontalLayout passwordChanger = new HorizontalLayout();
+        PasswordField passwordField = new PasswordField("Введите новый пароль");
+        Button changePassword = new Button("Сменить пароль", e -> {
+            MyUserDetails userDetails = (MyUserDetails) securityService.getAuthenticatedUser();
+            User user = userDetails.getUser();
+            user.setPassword(new BCryptPasswordEncoder().encode(passwordField.getValue()));
+            userRepository.updateUser(user);
+        });
+
+        passwordChanger.add(passwordField, changePassword);
+        add(passwordChanger);
+
+        HorizontalLayout emailChanger = new HorizontalLayout();
+        TextField emailField = new TextField("Введите новый email");
+        Button changeEmail = new Button("Сменить email", e -> {
+            MyUserDetails userDetails = (MyUserDetails) securityService.getAuthenticatedUser();
+            User user = userDetails.getUser();
+            user.setEmail(emailField.getValue());
+            userRepository.updateUser(user);
+        });
+
+        emailChanger.add(emailField, changeEmail);
+        add(emailChanger);
+
+        HorizontalLayout telephoneChanger = new HorizontalLayout();
+        PasswordField telephoneField = new PasswordField("Введите новый телефон");
+        Button changeTelephone = new Button("Сменить телефон", e -> {
+            MyUserDetails userDetails = (MyUserDetails) securityService.getAuthenticatedUser();
+            User user = userDetails.getUser();
+            user.setTelephone(telephoneField.getValue());
+            userRepository.updateUser(user);
+        });
+
+        telephoneChanger.add(telephoneField, changeTelephone);
+        add(telephoneChanger);
+
     }
 
     private HorizontalLayout getNavBar(){
@@ -114,5 +145,5 @@ public class MainView extends VerticalLayout {
 
         return layout;
     }
-}
 
+}

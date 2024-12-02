@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import ru.medgrand.DBKPProject.Models.Menu_Item;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -52,6 +53,13 @@ public class MenuRepository {
         catch (EmptyResultDataAccessException e){
             return Optional.empty();
         }
+    }
+
+    public List<Menu_Item> getAllItems(){
+        return jdbc.query(
+                "select * from menu_items",
+                mapper
+        );
     }
 
     @Transactional

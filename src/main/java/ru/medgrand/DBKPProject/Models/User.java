@@ -8,11 +8,11 @@ import java.time.LocalDateTime;
 public class User {
 
     private int user_id;
-    private String username;
-    private String password;
-    private String role;
-    private String email;
-    private String telephone;
-    private LocalDateTime created_at;
+    private String username = null;
+    private String password = null;
+    private String role = "user";
+    private String email = null;
+    private String telephone = null;
+    private LocalDateTime created_at = null;
 
 }

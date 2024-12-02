@@ -1,5 +1,6 @@
 package ru.medgrand.DBKPProject.Infrastucture;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -26,50 +27,54 @@ public class OrderRepository {
     private final JdbcTemplate jdbc;
     private final UserRepository userRepository;
     private final MenuRepository menuRepository;
+    private RowMapper<Order> mapper;
 
-    private final RowMapper<Order> mapper = (rs, rowNum) -> {
-        Order order = new Order();
+    @PostConstruct
+    public void init() {
+        mapper = (rs, rowNum) -> {
+            Order order = new Order();
 
-        order.setOrder_id(rs.getInt("order_id"));
-        order.setOrder_date(rs.getTimestamp("order_date").toLocalDateTime());
-        order.setTotal_price(rs.getDouble("total_price"));
+            order.setOrder_id(rs.getInt("order_id"));
+            order.setOrder_date(rs.getTimestamp("order_date").toLocalDateTime());
+            order.setTotal_price(rs.getDouble("total_price"));
 
-        Optional<User> user = userRepository.getUserById(rs.getInt("user_id"));
+            Optional<User> user = userRepository.getUserById(rs.getInt("user_id"));
 
-        if(user.isEmpty()){
-            throw new RuntimeException("User don`t exists");
-        }
+            if (user.isEmpty()) {
+                throw new RuntimeException("User don`t exists");
+            }
 
-        order.setHistory(
-                jdbc.query(
-                        "select * from order_history where order_id = ?",
-                        (rs2, rowNum2) -> {
-                            Order.Order_History rowHistory = new Order.Order_History();
-                            rowHistory.setTime(rs2.getTimestamp("time").toLocalDateTime());
-                            rowHistory.setStatus(rs2.getString("status"));
-                            return rowHistory;
-                        },
-                        order.getOrder_id()
-                )
-        );
+            order.setHistory(
+                    jdbc.query(
+                            "select * from order_history where order_id = ?",
+                            (rs2, rowNum2) -> {
+                                Order.Order_History rowHistory = new Order.Order_History();
+                                rowHistory.setTime(rs2.getTimestamp("time").toLocalDateTime());
+                                rowHistory.setStatus(rs2.getString("status"));
+                                return rowHistory;
+                            },
+                            order.getOrder_id()
+                    )
+            );
 
-        order.setItems(
-                jdbc.query(
-                        "select * from order_items where order_id = ?",
-                        (rs2, rowNum2) -> {
-                            Order.Order_Item item = new Order.Order_Item();
-                            item.setItem(menuRepository.getItemById(rs2.getInt("item_id")).get());
-                            item.setQuantity(rs2.getInt("quantity"));
-                            return item;
-                        },
-                        order.getOrder_id()
-                )
-        );
+            order.setItems(
+                    jdbc.query(
+                            "select * from order_items where order_id = ?",
+                            (rs2, rowNum2) -> {
+                                Order.Order_Item item = new Order.Order_Item();
+                                item.setItem(menuRepository.getItemById(rs2.getInt("item_id")).get());
+                                item.setQuantity(rs2.getInt("quantity"));
+                                return item;
+                            },
+                            order.getOrder_id()
+                    )
+            );
 
-        order.setUser(user.get());
+            order.setUser(user.get());
 
-        return order;
-    };
+            return order;
+        };
+    }
 
     public Optional<Order> getOrderById(int id){
         try{
@@ -102,12 +107,22 @@ public class OrderRepository {
         );
     }
 
+    public List<Order> getAllOrders(){
+        return jdbc.query(
+                """
+                select *
+                from orders
+                """,
+                mapper
+        );
+    }
+
     @Transactional
     public Optional<Order> createOrder(Order order){
 
         KeyHolder key = new GeneratedKeyHolder();
         PreparedStatementCreator psc = conn -> {
-            PreparedStatement stmt = conn.prepareStatement("insert int orders (user_id, order_date, total_price) values(?, ?, ?)", new String[]{"order_id"});
+            PreparedStatement stmt = conn.prepareStatement("insert into orders (user_id, order_date, total_price) values(?, ?, ?)", new String[]{"order_id"});
             stmt.setInt(1, order.getUser().getUser_id());
             stmt.setTimestamp(2, Timestamp.valueOf(order.getOrder_date()));
             stmt.setDouble(3, order.getTotal_price());
@@ -129,7 +144,7 @@ public class OrderRepository {
 
         for(var item : order.getItems()){
             jdbc.update(
-                    "insert into order_items (order_id, item_id, quantity) values(?, ? ?)",
+                    "insert into order_items (order_id, item_id, quantity) values(?, ?, ?)",
                     key.getKey().intValue(),
                     item.getItem().getItem_id(),
                     item.getQuantity()
@@ -154,9 +169,9 @@ public class OrderRepository {
     public void changeOrderItemQuantity(Order order, Menu_Item item, int quantity){
         jdbc.update(
                 "update order_items set quantity = ? where order_id = ? and item_id = ?",
+                quantity,
                 order.getOrder_id(),
-                item.getItem_id(),
-                quantity
+                item.getItem_id()
         );
     }
 
