@@ -1,4 +1,3 @@
--- Создание таблиц, если они еще не существуют
 CREATE TABLE IF NOT EXISTS Roles (
     role_id SERIAL PRIMARY KEY,
     role_name VARCHAR(50) NOT NULL UNIQUE
@@ -29,12 +28,12 @@ CREATE TABLE IF NOT EXISTS Shifts (
     shift_date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
-    CONSTRAINT unique_shift UNIQUE (employee_id, shift_date, start_time, end_time) -- Уникальное ограничение
+    CONSTRAINT unique_shift UNIQUE (employee_id, shift_date, start_time, end_time)
 );
 
 CREATE TABLE IF NOT EXISTS Menu_Items (
     item_id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE, -- Уникальное имя для предотвращения дублирования
+    name VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
     price NUMERIC(10, 2) NOT NULL CHECK (price >= 0),
     available BOOLEAN DEFAULT TRUE
@@ -52,7 +51,7 @@ CREATE TABLE IF NOT EXISTS Order_History (
     order_id INT REFERENCES Orders(order_id) ON DELETE CASCADE,
     time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(50) NOT NULL,
-    CONSTRAINT unique_order_history UNIQUE (order_id, time, status) -- Уникальное ограничение
+    CONSTRAINT unique_order_history UNIQUE (order_id, time, status)
 );
 
 CREATE TABLE IF NOT EXISTS Order_Items (
@@ -60,7 +59,7 @@ CREATE TABLE IF NOT EXISTS Order_Items (
     order_id INT REFERENCES Orders(order_id) ON DELETE CASCADE,
     item_id INT REFERENCES Menu_Items(item_id) ON DELETE CASCADE,
     quantity INT NOT NULL CHECK (quantity > 0),
-    CONSTRAINT unique_order_item UNIQUE (order_id, item_id) -- Уникальное ограничение для предотвращения дублирования позиций
+    CONSTRAINT unique_order_item UNIQUE (order_id, item_id)
 );
 
 CREATE TABLE IF NOT EXISTS Reviews (
