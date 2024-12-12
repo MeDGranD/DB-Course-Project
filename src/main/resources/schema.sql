@@ -69,5 +69,5 @@ CREATE TABLE IF NOT EXISTS Reviews (
     rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
     review_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_review UNIQUE (user_id, order_id) -- Уникальное ограничение для одного отзыва на заказ от одного пользователя
+    CONSTRAINT unique_review UNIQUE (user_id, order_id)
 );
