@@ -1,6 +1,10 @@
 package ru.medgrand.DBKPProject.Infrastucture;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -29,6 +33,7 @@ public class MenuRepository {
         return item;
     };
 
+    @Cacheable(value = "menuItems", key = "#id")
     public Optional<Menu_Item> getItemById(int id){
         try{
             return Optional.ofNullable(jdbc.queryForObject(
@@ -42,6 +47,7 @@ public class MenuRepository {
         }
     }
 
+    @Cacheable(value = "menuItems", key = "#name")
     public Optional<Menu_Item> getItemByName(String name){
         try{
             return Optional.ofNullable(jdbc.queryForObject(
@@ -55,6 +61,7 @@ public class MenuRepository {
         }
     }
 
+    @Cacheable(value = "allMenuItems", key = "'all'")
     public List<Menu_Item> getAllItems(){
         return jdbc.query(
                 "select * from menu_items",
@@ -63,6 +70,7 @@ public class MenuRepository {
     }
 
     @Transactional
+    @CacheEvict(value = "allMenuItems", key = "'all'")
     public Optional<Menu_Item> createItem(Menu_Item item){
         Optional<Menu_Item> existItem = getItemByName(item.getName());
 
@@ -82,6 +90,10 @@ public class MenuRepository {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "menuItems", key = "#item.getItem_id()"),
+            @CacheEvict(value = "allMenuItems", key = "'all'")
+    })
     public Optional<Menu_Item> updateItem(Menu_Item item){
         jdbc.update(
                 "update menu_items set name = ?, description = ?, price = ?, available = ? where item_id = ?",
@@ -96,6 +108,12 @@ public class MenuRepository {
     }
 
     @Transactional
+    @Caching(
+            evict = {
+                    @CacheEvict(value = "allMenuItems", key = "'all'"),
+                    @CacheEvict(value = "menuItems", key = "#item.getItem_id()")
+            }
+    )
     public void deleteItem(Menu_Item item) {
         jdbc.update(
                 "delete from menu_items where item_id = ?",

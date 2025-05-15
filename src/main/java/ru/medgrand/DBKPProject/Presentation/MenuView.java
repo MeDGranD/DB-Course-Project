@@ -19,6 +19,7 @@ import ru.medgrand.DBKPProject.Infrastucture.OrderRepository;
 import ru.medgrand.DBKPProject.Infrastucture.UserRepository;
 import ru.medgrand.DBKPProject.Models.Menu_Item;
 import ru.medgrand.DBKPProject.Models.Order;
+import ru.medgrand.DBKPProject.Pub_Sub.OrderEventPublisher;
 import ru.medgrand.DBKPProject.Security.MyUserDetails;
 import ru.medgrand.DBKPProject.Security.SecurityService;
 
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Route("/menu")
 @AnonymousAllowed
@@ -35,6 +37,7 @@ public class MenuView extends VerticalLayout {
     private final UserRepository userRepository;
     private final MenuRepository menuRepository;
     private final OrderRepository orderRepository;
+    private final OrderEventPublisher orderEventPublisher;
 
     private final Map<Integer, Long> cart = new HashMap<>();
 
@@ -43,12 +46,14 @@ public class MenuView extends VerticalLayout {
                     AuthenticationContext authContext,
                     UserRepository userRepository,
                     MenuRepository menuRepository,
-                    OrderRepository orderRepository) {
+                    OrderRepository orderRepository,
+                    OrderEventPublisher orderEventPublisher) {
 
         this.securityService = securityService;
         this.menuRepository = menuRepository;
         this.userRepository = userRepository;
         this.orderRepository = orderRepository;
+        this.orderEventPublisher = orderEventPublisher;
 
         add(getNavBar());
         add(getAllDishes());
@@ -75,7 +80,11 @@ public class MenuView extends VerticalLayout {
                         order.getItems().add(item);
                         order.setTotal_price(order.getTotal_price() + item.getQuantity() * menuItem.getPrice());
                     }
-                    orderRepository.createOrder(order);
+                    Optional<Order> savedOrder = orderRepository.createOrder(order);
+                    savedOrder.ifPresent(orderEventPublisher::publishNewOrder);
+
+                    cart.clear();
+                    Notification.show("Заказ успешно создан!");
                 }
             }));
 
