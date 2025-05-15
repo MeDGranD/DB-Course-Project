@@ -1,8 +1,8 @@
 INSERT INTO Roles (role_name)
 VALUES
-    ('Manager'),
-    ('Employee'),
-    ('Customer')
+    ('admin'),
+    ('employee'),
+    ('user')
 ON CONFLICT (role_name) DO NOTHING;
 
 INSERT INTO Menu_Items (name, description, price, available)
