@@ -9,6 +9,8 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.provider.ListDataProvider;
+import com.vaadin.flow.data.provider.SortDirection;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.spring.security.AuthenticationContext;
 import jakarta.annotation.security.PermitAll;
@@ -21,30 +23,45 @@ import ru.medgrand.DBKPProject.Infrastucture.UserRepository;
 import ru.medgrand.DBKPProject.Models.Menu_Item;
 import ru.medgrand.DBKPProject.Models.Order;
 import ru.medgrand.DBKPProject.Models.User;
+import ru.medgrand.DBKPProject.Pub_Sub.OrderEventPublisher;
+import ru.medgrand.DBKPProject.Pub_Sub.OrderEventsSubscriber;
+import ru.medgrand.DBKPProject.Pub_Sub.OrderUpdateListener;
 import ru.medgrand.DBKPProject.Security.MyUserDetails;
 import ru.medgrand.DBKPProject.Security.SecurityService;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Route("/orders")
 @PermitAll
-public class OrdersView extends VerticalLayout {
+public class OrdersView extends VerticalLayout implements OrderUpdateListener {
     private final SecurityService securityService;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final MenuRepository menuRepository;
+    private final OrderEventPublisher orderEventPublisher;
+    private final OrderEventsSubscriber orderEventsSubscriber;
+
+    private ListDataProvider<Order> dataProvider;;
 
     @Autowired
     public OrdersView(SecurityService securityService,
                       OrderRepository orderRepository,
                       UserRepository userRepository,
-                      MenuRepository menuRepository) {
+                      MenuRepository menuRepository,
+                      OrderEventPublisher orderPublisher,
+                      OrderEventsSubscriber orderSubscriber) {
 
         this.securityService = securityService;
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
         this.menuRepository = menuRepository;
+        this.orderEventPublisher = orderPublisher;
+        this.orderEventsSubscriber = orderSubscriber;
+
+        this.orderEventsSubscriber.registerListener(this);
 
         add(getNavBar());
         add(getAllOrders());
@@ -60,14 +77,22 @@ public class OrdersView extends VerticalLayout {
         grid.addColumn(order -> order.getHistory().getLast().getStatus()).setHeader("status");
 
         if(userDetails.getAuthorities().stream().anyMatch(grantedAuthority -> "ROLE_user".equals(grantedAuthority.getAuthority()))){
-            grid.setItems(orderRepository.getOrdersByUser(userDetails.getUser()));
+            dataProvider = new ListDataProvider<>(new ArrayList<>(
+                    orderRepository.getOrdersByUser(userDetails.getUser()))
+            );
+            grid.setDataProvider(dataProvider);
         }
         if(userDetails.getAuthorities().stream().anyMatch(grantedAuthority -> "ROLE_employee".equals(grantedAuthority.getAuthority()))){
-            List<Order> orders = orderRepository.getAllOrders();
-            grid.setItems(orders.stream().filter(o -> !o.getHistory().getLast().getStatus().equals("taken")).toList());
+            dataProvider = new ListDataProvider<>(new ArrayList<>(
+                    orderRepository.getOrdersByUser(userDetails.getUser())).stream().filter(o -> !o.getHistory().getLast().getStatus().equals("taken")).toList()
+            );
+            grid.setDataProvider(dataProvider);
         }
         if(userDetails.getAuthorities().stream().anyMatch(grantedAuthority -> "ROLE_admin".equals(grantedAuthority.getAuthority()))){
-            grid.setItems(orderRepository.getAllOrders());
+            dataProvider = new ListDataProvider<>(new ArrayList<>(
+                    orderRepository.getAllOrders())
+            );
+            grid.setDataProvider(dataProvider);
         }
 
         grid.addComponentColumn(order -> {
@@ -287,5 +312,39 @@ public class OrdersView extends VerticalLayout {
         layout.setWidthFull();
 
         return layout;
+    }
+
+    @Override
+    public void onNewOrderReceived(Map<String, Object> orderData) {
+        long orderId = ((Number) orderData.get("orderId")).longValue();
+        boolean exists = dataProvider.getItems().stream().anyMatch(o -> o.getOrder_id() == orderId);
+        if (!exists) {
+            orderRepository.getOrderById((int) orderId).ifPresent(newOrder -> {
+                dataProvider.getItems().add(newOrder);
+                dataProvider.refreshAll();
+            });
+        }
+    }
+
+    @Override
+    public void onOrderStatusUpdated(Map<String, Object> statusUpdateData) {
+
+        Long orderId = ((Number) statusUpdateData.get("orderId")).longValue();
+        String newStatus = (String) statusUpdateData.get("newStatus");
+
+        Optional<Order> orderToUpdateOpt = dataProvider.getItems().stream()
+                .filter(o -> o.getOrder_id() == orderId)
+                .findFirst();
+
+        if (orderToUpdateOpt.isPresent()) {
+            orderRepository.getOrderById(orderId.intValue()).ifPresent(updatedOrderFromDb -> {
+                List<Order> items = new ArrayList<>(dataProvider.getItems());
+                items.removeIf(o -> o.getOrder_id() == orderId);
+                items.add(updatedOrderFromDb);
+                dataProvider = new ListDataProvider<>(items);
+                dataProvider.setSortOrder(Order::getOrder_date, SortDirection.DESCENDING);
+                dataProvider.refreshAll();
+            });
+        }
     }
 }

@@ -2,6 +2,10 @@ package ru.medgrand.DBKPProject.Infrastucture;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementCreator;
@@ -76,6 +80,7 @@ public class OrderRepository {
         };
     }
 
+    @Cacheable(value = "orderItems", key = "#id")
     public Optional<Order> getOrderById(int id){
         try{
             return Optional.ofNullable(
@@ -95,6 +100,7 @@ public class OrderRepository {
         }
     }
 
+    @Cacheable(value = "orderItemsByUser", key = "#user.getUser_id")
     public List<Order> getOrdersByUser(User user){
         return jdbc.query(
                 """
@@ -107,6 +113,7 @@ public class OrderRepository {
         );
     }
 
+    @Cacheable(value = "allOrderItems", key = "'all'")
     public List<Order> getAllOrders(){
         return jdbc.query(
                 """
@@ -118,6 +125,10 @@ public class OrderRepository {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "allOrderItems", key = "'all'"),
+            @CacheEvict(value = "orderItemsByUser", key = "#order.user.getUser_id")
+    })
     public Optional<Order> createOrder(Order order){
 
         KeyHolder key = new GeneratedKeyHolder();
@@ -156,6 +167,11 @@ public class OrderRepository {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderItems", key = "#order.getOrder_id"),
+            @CacheEvict(value = "allOrderItems", key = "'all'"),
+            @CacheEvict(value = "orderItemsByUser", key = "#order.user.getUser_id")
+    })
     public void changeOrderStatus(Order order, String status){
         jdbc.update(
                 "insert into order_history (order_id, time, status) values(?, ?, ?)",
@@ -166,6 +182,11 @@ public class OrderRepository {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderItems", key = "#order.getOrder_id"),
+            @CacheEvict(value = "allOrderItems", key = "'all'"),
+            @CacheEvict(value = "orderItemsByUser", key = "#order.user.getUser_id")
+    })
     public void changeOrderItemQuantity(Order order, Menu_Item item, int quantity){
         jdbc.update(
                 "update order_items set quantity = ? where order_id = ? and item_id = ?",
@@ -176,6 +197,11 @@ public class OrderRepository {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderItems", key = "#order.getOrder_id"),
+            @CacheEvict(value = "allOrderItems", key = "'all'"),
+            @CacheEvict(value = "orderItemsByUser", key = "#order.user.getUser_id")
+    })
     public void addOrderItem(Order order, Menu_Item item){
 
         try{
@@ -198,6 +224,11 @@ public class OrderRepository {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderItems", key = "#order.getOrder_id"),
+            @CacheEvict(value = "allOrderItems", key = "'all'"),
+            @CacheEvict(value = "orderItemsByUser", key = "#order.user.getUser_id")
+    })
     public void deleteOrderItem(Order order, Menu_Item item){
         jdbc.update(
                 "delete from order_items where order_id = ? and item_id = ?",
@@ -207,6 +238,10 @@ public class OrderRepository {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "orderItems", key = "#order.getOrder_id"),
+            @CacheEvict(value = "allOrderItems", key = "'all'")
+    })
     public void deleteOrder(Order order){
         jdbc.update(
                 "delete from orders where order_id = ?",
